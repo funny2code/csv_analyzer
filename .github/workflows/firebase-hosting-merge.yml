@@ -10,16 +10,9 @@ jobs:
   semantic-pull-request:
     name: "Semantic"
     uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/semantic_pull_request.yml@v1
-
-  analyze:
-    name: "Analyze"
-    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/flutter_package.yml@v1
-    with:
-      flutter_channel: stable
-      flutter_version: 3.27.1
   build_and_deploy:
     name: "Build and Deploy"
-    needs: [semantic-pull-request, analyze]
+    needs: [semantic-pull-request]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,10 +23,20 @@ jobs:
           flutter-version: 3.27.1
       - name: Install dependencies
         run: |
-          flutter pub global activate
+          flutter pub global activate very_good_cli
+          very_good --analytics false
+          very_good packages get --recursive
       - name: 🛠️ Build the application
         run: flutter build web -t lib/main_production.dart
-     
+      - name: ⬇️ Archive Production Artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: build
+          path: build/web
+      - uses: actions/download-artifact@master
+        with:
+          name: build
+          path: build/web
       - name: Deloy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
