@@ -11,9 +11,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci
-      - run: '"flutter build web"'
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: 3.3.8
+      - name: Install dependencies
+        run: |
+          flutter pub global activate ver_good_cli
+          very_good --analytics false
+          very_good packages get --recursive
+      - name: 🛠️ Build the application
+        run: flutter build web -t lib/main_production.dart
+      - name: ⬇️ Archive Production Artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: build
+          path: build/web
+      - uses: actions/download-artifact@master
+        with:
+          name: build
+          path: build/web
+      - name: Deloy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CSVANALYZER_40518 }}
