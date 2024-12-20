@@ -9,7 +9,8 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  List<List<dynamic>> _data = [];
+  List<List<dynamic>> csvData = [];
+  List<String> headers = [];
 
   Future<void> _pickAndReadCsvFile() async {
     try {
@@ -24,8 +25,15 @@ class _MyHomePageState extends State<MyHomePage> {
             const CsvToListConverter().convert(fileContent);
 
         setState(() {
-          _data = csvTable;
+          headers = List<String>.from(csvTable[0]); // First row as headers
+          csvData = csvTable.sublist(1); // Sublist excluding headers
         });
+      }
+      else {
+        // Handle case when no file is selected
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No file selected')),
+        );
       }
     } catch (e) {
       print('Error reading CSV file: $e');
@@ -38,24 +46,33 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         title: Text("Importing CSV Files into Firestore"),
       ),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: _pickAndReadCsvFile,
-            child: Text('Importing CSV Files into Firestore'),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _data.length,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(_data[index].join(", ")),
-                );
-              },
+      body: Center(
+        child: Column(
+          children: [
+            ElevatedButton(
+              onPressed: _pickAndReadCsvFile,
+              child: Text('Pick and Read CSV'),
             ),
-          ),
-        ],
-      ),
+            Flexible(
+               child: (headers.isEmpty || csvData.isEmpty)
+                  ? Center(child: Text('No data available'))
+                  : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        columns: headers.map((header) {
+                          return DataColumn(label: Text(header));
+                        }).toList(),
+                        rows: csvData.map((row) {
+                          return DataRow(cells: row.map((cell) {
+                            return DataCell(Text(cell.toString()));
+                          }).toList());
+                        }).toList(),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      )
     );
   }
 }
