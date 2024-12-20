@@ -33,15 +33,7 @@ jobs:
           flutter pub global activate
       - name: 🛠️ Build the application
         run: flutter build web -t lib/main_production.dart
-      - name: ⬇️ Archive Production Artifact
-        uses: actions/upload-artifact@master
-        with:
-          name: build
-          path: build/web
-      - uses: actions/download-artifact@master
-        with:
-          name: build
-          path: build/web
+     
       - name: Deloy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
