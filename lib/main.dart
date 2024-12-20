@@ -36,13 +36,13 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Import CSV into Firestore"),
+        title: Text("Importing CSV Files into Firestore"),
       ),
       body: Column(
         children: [
           ElevatedButton(
             onPressed: _pickAndReadCsvFile,
-            child: Text('Import CSV'),
+            child: Text('Importing CSV Files into Firestore'),
           ),
           Expanded(
             child: ListView.builder(
