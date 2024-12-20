@@ -36,7 +36,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("CSV Import"),
+        title: Text("Import CSV into Firestore"),
       ),
       body: Column(
         children: [
