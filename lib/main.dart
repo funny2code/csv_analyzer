@@ -2,6 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
 import 'package:csv/csv.dart';
+import 'package:flutter/gestures.dart';
+
+class MyCustomScrollBehavior extends MaterialScrollBehavior {
+  // Override behavior methods and getters like dragDevices
+  @override
+  Set<PointerDeviceKind> get dragDevices => { 
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+  };
+}
 
 class MyHomePage extends StatefulWidget {
   @override
@@ -46,7 +56,8 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         title: Text("Importing CSV Files into Firestore"),
       ),
-      body: Center(
+      body: ScrollConfiguration(
+        behavior: MyCustomScrollBehavior(),
         child: Column(
           children: [
             ElevatedButton(
@@ -78,5 +89,7 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 void main() {
-  runApp(MaterialApp(home: MyHomePage()));
+  runApp(MaterialApp(
+    home: MyHomePage(),
+  ));
 }
