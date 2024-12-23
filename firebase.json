@@ -1,13 +1,19 @@
 {
   "hosting": {
     "source": ".",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "frameworksBackend": {
-      "region": "us-central1"
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "frameworksBackend": { "region": "us-central1" }
+  },
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "csvanalyzer-40518",
+          "configurations": {
+            "web": "1:46938249635:web:bca53ba45a556d029ba216"
+          }
+        }
+      }
     }
   }
 }
