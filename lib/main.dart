@@ -8,7 +8,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
 class MyCustomScrollBehavior extends MaterialScrollBehavior {
-  // Override behavior methods and getters like dragDevices
   @override
   Set<PointerDeviceKind> get dragDevices => { 
     PointerDeviceKind.touch,
@@ -52,7 +51,6 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> insertDataToFirestore(List<List<dynamic>> fieldValues) async {
     final CollectionReference collection = FirebaseFirestore.instance.collection('materials');
 
-    print("insertDataToFirestore: fieldValues.length = ${fieldValues.length}");
     for (int index = 0; index < fieldValues.length; index++) {
       var row = fieldValues[index];
       Map<String, dynamic> documentData = {};
@@ -77,8 +75,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
       if (result != null) {
         final String? fileContent = utf8.decode(result.files.single.bytes!, allowMalformed: true);
-        List<List<dynamic>> csvTable = const CsvToListConverter().convert(fileContent);
-
+        List<List<dynamic>> csvTable =
+            const CsvToListConverter().convert(fileContent);
+        
+        // Reset progress before starting insertion
         setState(() {
           importProgress = 0;
         });
@@ -88,16 +88,13 @@ class _MyHomePageState extends State<MyHomePage> {
           headers = List<String>.from(csvTable[0]); // First row as headers
           csvData = csvTable.sublist(1); // Sublist excluding headers
         });
-      }
-      else {
-        // Handle case when no file is selected
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('No file selected')),
         );
       }
     } catch (e) {
       print('Error reading CSV file');
-      // Handle the error as needed
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error reading CSV file')),
       );
@@ -141,18 +138,12 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  Future<List<DocumentSnapshot>> fetchData() async {
-    final firestore = FirebaseFirestore.instance;
-    QuerySnapshot snapshot = await firestore.collection('items').get();
-    return snapshot.docs;
-  }
-
   Future<void> _previousPage() async {
     if (currentPage <= 1 || isLoading) return;
 
     setState(() {
       isLoading = true;
-      currentPage -= 2; // Since `_fetchPage` automatically moves to next page
+      currentPage -= 2;
     });
 
     _fetchPage(clear: true);
@@ -173,13 +164,22 @@ class _MyHomePageState extends State<MyHomePage> {
         behavior: MyCustomScrollBehavior(), 
         child: Column(
           children: [
-            Expanded( child: _buildDataGrid()),
+            Expanded(child: _buildDataGrid()),
             if (importProgress != null)
               Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  'Import Progress: ${importProgress!.toStringAsFixed(1)}%',
-                  style: TextStyle(fontSize: 16),
+                child: Column(
+                  children: [
+                    LinearProgressIndicator(
+                      value: importProgress! / 100,
+                      minHeight: 10,
+                    ),
+                    SizedBox(height: 5),
+                    Text(
+                      'Import Progress: ${importProgress!.toStringAsFixed(1)}%',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ],
                 ),
               ),
             if (isLoading) CircularProgressIndicator(),
@@ -200,10 +200,10 @@ class _MyHomePageState extends State<MyHomePage> {
             ElevatedButton(onPressed: _pickAndReadCsvFile, child: Text("Import CSV")),
           ],
         ),
-      )
-        
+      ),
     );
   }
+
   Widget _buildDataGrid() {
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
