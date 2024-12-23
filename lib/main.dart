@@ -6,6 +6,7 @@ import 'package:flutter/gestures.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:intl/intl.dart';
 
 class MyCustomScrollBehavior extends MaterialScrollBehavior {
   @override
@@ -24,7 +25,7 @@ class _MyHomePageState extends State<MyHomePage> {
   List<List<dynamic>> csvData = [];
   // List<String> headers = [];
   Map<String, dynamic> documentFields = {};
-  List<String> fields = ["index", "X31","品目K","品目C","ローレベルC","略称カナ","品目名1","品目名2","記号型番","科目C","基準在庫数","最低在庫数",
+  List<String> headers_csv = ["index", "X31","品目K","品目C","ローレベルC","略称カナ","品目名1","品目名2","記号型番","科目C","基準在庫数","最低在庫数",
     "標準単位","標準単価","X19","税金K","X22","調達K","X12","支給K","製造ロット数","製造リードタイム","図面番号","歩留数",
     "場所C_ﾛｹｰｼｮﾝ","略号","科目C2","X91","分類C1","X92","分類C2","X93","分類C3","員数単位","員数","X09","在備K","X01","管理K",
     "単位重量","X06","計算K","比重","加工時間_回","X31B","代替品目K","代替品目C","資材単価1","資材単価2","資材単価3",
@@ -35,7 +36,20 @@ class _MyHomePageState extends State<MyHomePage> {
     "有効開始日","有効終了日","X48","留意K","X94","分類C4","X95","分類C5","X96","分類C6","中止番号","出力日時分","科目名","税金区分",
     "調達区分","支給区分","在備区分","管理区分","計算区分","資材区分","代替資材区分","留意区分","代替資材名1","代替資材名2",
     "バーコード場所C","バーコード品目KC","取引先名","廃止F","廃止","製造手配区分名"];
-  
+  List<String> labels = [
+    "Index", "CreatedAt", "CreatedBy", "品目名1", "品目名2", "標準単位", "標準単価", "UpdatedAt", "UpdatedBy"
+  ];
+  List<String> fields =  [
+    "index",
+    "created_at", // csv imported date
+    "created_by", // csv
+    "material_name", // 品目名1
+    "material_item_name2", // 品目名2
+    "standard_unit", // 標準単位
+    "standard_unit_cost", // 標準単価
+    "updated_at", // csv imported date
+    "updated_by" // csv
+  ];
   final int itemsPerPage = 10;
   int currentPage = 0;
   bool isLoading = false;
@@ -44,6 +58,22 @@ class _MyHomePageState extends State<MyHomePage> {
 
   // Notifier for progress bar value
   ValueNotifier<double> progressNotifier = ValueNotifier(0.0);
+
+  Future<void> insertDataRowToFirestore(List<dynamic> row) async {
+    DateTime now = DateTime.now();
+    String formattedDate = DateFormat('yy/MM/dd HH:mm:ss').format(now);
+    await FirebaseFirestore.instance.collection('materials').add({
+      "index": row[0], 
+      "created_at": formattedDate, 
+      "created_by": "CSV", 
+      "material_name": row[6], 
+      "material_item_name2": row[7], 
+      "standard_unit": row[12], 
+      "standard_unit_cost": row[13], 
+      "updated_at": formattedDate, 
+      "updated_by": "CSV" 
+    });
+  }
 
   @override
   void initState() {
@@ -86,14 +116,14 @@ class _MyHomePageState extends State<MyHomePage> {
           var row = dataRows[i];
           row.insert(0, i+1);
           // Check for "品目名1" existence and non-empty constraint
-          var itemName1Index = fields.indexOf("品目名1");
+          var itemName1Index = headers_csv.indexOf("品目名1");
           if (itemName1Index == -1 || row[itemName1Index].toString().trim().isEmpty) {
             errorMessages.add('Row ${i + 1}, Column "品目名1": Value cannot be empty.');
             continue; // Skip processing this row
           }
 
           // Check for "品目名2" existence
-          var itemName2Index = fields.indexOf("品目名2");
+          var itemName2Index = headers_csv.indexOf("品目名2");
           if (itemName2Index == -1) {
             errorMessages.add('Row ${i + 1}: "品目名2" column is missing.');
             continue; // Skip processing this row
@@ -115,6 +145,7 @@ class _MyHomePageState extends State<MyHomePage> {
           try {
             await insertDataRowToFirestore(row);
           } catch (e) {
+            print(e);
             errorMessages.add('Row ${i + 1}: Error saving data to Firestore.');
           }
         }
@@ -126,6 +157,7 @@ class _MyHomePageState extends State<MyHomePage> {
           // Fetch the homepage data if no errors occur
           await _fetchPage(clear: true);
         }
+        await _fetchPage(clear: true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('No file selected')),
@@ -145,14 +177,6 @@ class _MyHomePageState extends State<MyHomePage> {
         SnackBar(content: Text(error)),
       );
     });
-  }
-
-  Future<void> insertDataRowToFirestore(List<dynamic> row) async {
-    Map<String, dynamic> data = {};
-    for (int i = 0; i < fields.length; i++) {
-      data[fields[i]] = row[i];
-    }
-    await FirebaseFirestore.instance.collection('materials').add(data);
   }
 
   Future<void> _fetchPage({required bool clear}) async {
@@ -255,7 +279,7 @@ class _MyHomePageState extends State<MyHomePage> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: DataTable(
-          columns: fields.map((field) => DataColumn(label: Text(field))).toList(),
+          columns: labels.map((item) => DataColumn(label: Text(item))).toList(),
           rows: documents.map((document) {
             var data = document.data() as Map<String, dynamic>;
             return DataRow(
