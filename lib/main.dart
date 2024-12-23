@@ -53,12 +53,18 @@ class _MyHomePageState extends State<MyHomePage> {
     final CollectionReference collection = FirebaseFirestore.instance.collection('materials');
 
     print("insertDataToFirestore: fieldValues.length = ${fieldValues.length}");
-    for (var row in fieldValues) {
+    for (int index = 0; index < fieldValues.length; index++) {
+      var row = fieldValues[index];
       Map<String, dynamic> documentData = {};
       for (int i = 0; i < fields.length; i++) {
         documentData[fields[i]] = row[i];
       }
       await collection.add(documentData);
+
+      // Update import progress
+      setState(() {
+        importProgress = (index + 1) / fieldValues.length * 100;
+      });
     }
   }
 
@@ -71,8 +77,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
       if (result != null) {
         final String? fileContent = utf8.decode(result.files.single.bytes!, allowMalformed: true);
-        List<List<dynamic>> csvTable =
-            const CsvToListConverter().convert(fileContent);
+        List<List<dynamic>> csvTable = const CsvToListConverter().convert(fileContent);
+
+        setState(() {
+          importProgress = 0;
+        });
+        
         await insertDataToFirestore(csvTable.sublist(1));
         setState(() {
           headers = List<String>.from(csvTable[0]); // First row as headers
@@ -164,6 +174,14 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           children: [
             Expanded( child: _buildDataGrid()),
+            if (importProgress != null)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  'Import Progress: ${importProgress!.toStringAsFixed(1)}%',
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
             if (isLoading) CircularProgressIndicator(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
