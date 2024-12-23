@@ -22,9 +22,9 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   List<List<dynamic>> csvData = [];
-  List<String> headers = [];
+  // List<String> headers = [];
   Map<String, dynamic> documentFields = {};
-  List<String> fields = ["X31","品目K","品目C","ローレベルC","略称カナ","品目名1","品目名2","記号型番","科目C","基準在庫数","最低在庫数",
+  List<String> fields = ["index", "X31","品目K","品目C","ローレベルC","略称カナ","品目名1","品目名2","記号型番","科目C","基準在庫数","最低在庫数",
     "標準単位","標準単価","X19","税金K","X22","調達K","X12","支給K","製造ロット数","製造リードタイム","図面番号","歩留数",
     "場所C_ﾛｹｰｼｮﾝ","略号","科目C2","X91","分類C1","X92","分類C2","X93","分類C3","員数単位","員数","X09","在備K","X01","管理K",
     "単位重量","X06","計算K","比重","加工時間_回","X31B","代替品目K","代替品目C","資材単価1","資材単価2","資材単価3",
@@ -35,12 +35,15 @@ class _MyHomePageState extends State<MyHomePage> {
     "有効開始日","有効終了日","X48","留意K","X94","分類C4","X95","分類C5","X96","分類C6","中止番号","出力日時分","科目名","税金区分",
     "調達区分","支給区分","在備区分","管理区分","計算区分","資材区分","代替資材区分","留意区分","代替資材名1","代替資材名2",
     "バーコード場所C","バーコード品目KC","取引先名","廃止F","廃止","製造手配区分名"];
-  double? importProgress;
+  
   final int itemsPerPage = 10;
   int currentPage = 0;
   bool isLoading = false;
   List<DocumentSnapshot> documents = [];
   DocumentSnapshot? lastDocument;
+
+  // Notifier for progress bar value
+  ValueNotifier<double> progressNotifier = ValueNotifier(0.0);
 
   @override
   void initState() {
@@ -48,21 +51,12 @@ class _MyHomePageState extends State<MyHomePage> {
     _fetchPage(clear: true);
   }
 
-  Future<void> insertDataToFirestore(List<List<dynamic>> fieldValues) async {
+  Future<void> deleteAllDocuments() async {
     final CollectionReference collection = FirebaseFirestore.instance.collection('materials');
+    QuerySnapshot snapshot = await collection.get();
 
-    for (int index = 0; index < fieldValues.length; index++) {
-      var row = fieldValues[index];
-      Map<String, dynamic> documentData = {};
-      for (int i = 0; i < fields.length; i++) {
-        documentData[fields[i]] = row[i];
-      }
-      await collection.add(documentData);
-
-      // Update import progress
-      setState(() {
-        importProgress = (index + 1) / fieldValues.length * 100;
-      });
+    for (DocumentSnapshot document in snapshot.docs) {
+      await document.reference.delete();
     }
   }
 
@@ -77,28 +71,88 @@ class _MyHomePageState extends State<MyHomePage> {
         final String? fileContent = utf8.decode(result.files.single.bytes!, allowMalformed: true);
         List<List<dynamic>> csvTable =
             const CsvToListConverter().convert(fileContent);
-        
-        // Reset progress before starting insertion
-        setState(() {
-          importProgress = 0;
-        });
-        
-        await insertDataToFirestore(csvTable.sublist(1));
-        setState(() {
-          headers = List<String>.from(csvTable[0]); // First row as headers
-          csvData = csvTable.sublist(1); // Sublist excluding headers
-        });
+
+        // Extract headers and data
+        // List<String> headers = List<String>.from(csvTable[0]);
+        List<List<dynamic>> dataRows = csvTable.sublist(1);
+        // Delete existing data before importing new one
+        await deleteAllDocuments();
+
+        // Validate data and store any errors encountered
+        List<String> errorMessages = [];
+        Set<String> uniqueItemPairs = {};
+
+        for (var i = 0; i < dataRows.length; i++) {
+          var row = dataRows[i];
+          row.insert(0, i+1);
+          // Check for "品目名1" existence and non-empty constraint
+          var itemName1Index = fields.indexOf("品目名1");
+          if (itemName1Index == -1 || row[itemName1Index].toString().trim().isEmpty) {
+            errorMessages.add('Row ${i + 1}, Column "品目名1": Value cannot be empty.');
+            continue; // Skip processing this row
+          }
+
+          // Check for "品目名2" existence
+          var itemName2Index = fields.indexOf("品目名2");
+          if (itemName2Index == -1) {
+            errorMessages.add('Row ${i + 1}: "品目名2" column is missing.');
+            continue; // Skip processing this row
+          }
+
+          // Combine "品目名1" and "品目名2" to check uniqueness of pairs
+          String itemPair = '${row[itemName1Index]}-${row[itemName2Index]}';
+          if (!uniqueItemPairs.add(itemPair)) {
+            errorMessages.add('Row ${i + 1}: Duplicate combination of "品目名1" and "品目名2" found.');
+            continue; // Skip processing this row
+          }
+
+          // Add more validation checks as needed here, e.g., data types, formats
+
+          // Update progress
+          progressNotifier.value = (i + 1) / dataRows.length;
+          
+          // If valid, insert data
+          try {
+            await insertDataRowToFirestore(row);
+          } catch (e) {
+            errorMessages.add('Row ${i + 1}: Error saving data to Firestore.');
+          }
+        }
+
+        // Displaying errors if there are any
+        if (errorMessages.isNotEmpty) {
+          displayErrors(errorMessages);
+        } else {
+          // Fetch the homepage data if no errors occur
+          await _fetchPage(clear: true);
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('No file selected')),
         );
       }
     } catch (e) {
-      print('Error reading CSV file');
+      print('Error reading CSV file: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error reading CSV file')),
       );
     }
+  }
+
+  void displayErrors(List<String> errors) {
+    errors.forEach((error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+    });
+  }
+
+  Future<void> insertDataRowToFirestore(List<dynamic> row) async {
+    Map<String, dynamic> data = {};
+    for (int i = 0; i < fields.length; i++) {
+      data[fields[i]] = row[i];
+    }
+    await FirebaseFirestore.instance.collection('materials').add(data);
   }
 
   Future<void> _fetchPage({required bool clear}) async {
@@ -114,6 +168,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     Query query = FirebaseFirestore.instance
         .collection('materials')
+        .orderBy('index')
         .limit(itemsPerPage);
 
     if (lastDocument != null && !clear) {
@@ -165,23 +220,13 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           children: [
             Expanded(child: _buildDataGrid()),
-            if (importProgress != null)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  children: [
-                    LinearProgressIndicator(
-                      value: importProgress! / 100,
-                      minHeight: 10,
-                    ),
-                    SizedBox(height: 5),
-                    Text(
-                      'Import Progress: ${importProgress!.toStringAsFixed(1)}%',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ],
-                ),
-              ),
+            SizedBox(height: 20),
+            ValueListenableBuilder<double>(
+              valueListenable: progressNotifier,
+              builder: (context, value, child) {
+                return LinearProgressIndicator(value: value);
+              },
+            ),
             if (isLoading) CircularProgressIndicator(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
