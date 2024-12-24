@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:intl/intl.dart';
+import 'package:charset/charset.dart';
 
 class MyCustomScrollBehavior extends MaterialScrollBehavior {
   @override
@@ -98,7 +99,8 @@ class _MyHomePageState extends State<MyHomePage> {
       );
 
       if (result != null) {
-        final String? fileContent = utf8.decode(result.files.single.bytes!, allowMalformed: true);
+        // final String? fileContent = utf8.decode(result.files.single.bytes!, allowMalformed: true);
+        final String? fileContent = shiftJis.decode(result.files.single.bytes!);
         List<List<dynamic>> csvTable =
             const CsvToListConverter().convert(fileContent);
 
